@@ -16,5 +16,8 @@ env:
     label: URL pública
     descricao: Ex. https://git.meudominio.com/ — inclua a barra final.
     obrigatorio: true
+admin_ui:
+  porta: 3000
+  nome: Gitea
 injeta:
   GITEA_URL: "http://{{.Host}}:3000"

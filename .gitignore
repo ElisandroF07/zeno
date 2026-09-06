@@ -7,3 +7,5 @@ zeno.db-wal
 zeno.db-shm
 logs/
 *.log
+.playwright-mcp/
+*.png

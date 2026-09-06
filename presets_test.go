@@ -36,6 +36,25 @@ func TestPresetsEmbutidosCarregam(t *testing.T) {
 	}
 }
 
+// Regressão: o Gitea tem uma UI web completa na própria porta do serviço,
+// mas o preset original esqueceu o admin_ui — o serviço subia inacessível de
+// fora da rede zeno. Só apareceu usando de verdade (dogfooding), não em
+// nenhum teste isolado; por isso o teste específico, não um genérico
+// "todo preset precisa de admin_ui" (Redis/Postgres cru legitimamente não).
+func TestGiteaTemConsoleAcessivel(t *testing.T) {
+	presets, err := carregarPresets("nao-existe")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gitea, ok := presets["gitea"]
+	if !ok {
+		t.Fatal("preset gitea sumiu do catálogo")
+	}
+	if gitea.AdminUI == nil || gitea.AdminUI.Porta == 0 {
+		t.Error("gitea sem admin_ui — sobe sem jeito nenhum de acessar a UI de fora da rede zeno")
+	}
+}
+
 func TestResolverEnvPadraoEGeracao(t *testing.T) {
 	presets, err := carregarPresets("nao-existe")
 	if err != nil {
