@@ -83,9 +83,9 @@ func (d *deploys) criarApp(ctx context.Context, a App) (int64, error) {
 	if a.RepoURL == "" {
 		return 0, fmt.Errorf("repo_url é obrigatório")
 	}
-	if a.Branch == "" {
-		a.Branch = "main"
-	}
+	// Branch vazio fica vazio: clonar() sem --branch deixa o git resolver
+	// sozinho a branch padrão do remoto — forçar "main" aqui quebrava o
+	// clone de qualquer repo que não use esse nome (ainda comum: "master").
 	if a.Porta == 0 {
 		a.Porta = 3000
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -188,14 +189,14 @@ func detectarRepo(ctx context.Context, repoURL, branch string) (Deteccao, error)
 	}
 	defer os.RemoveAll(dir)
 
-	if _, err := clonar(ctx, repoURL, branch, dir, &descartaLog{}); err != nil {
-		return Deteccao{}, fmt.Errorf("clonar para detectar: %w", err)
+	// A saída do git precisa sobreviver ao erro: "exit status 128" sozinho
+	// não diz nada — quem vê isso não sabe se é branch errada, repo privado
+	// sem credencial, ou nome digitado errado. O texto que realmente importa
+	// (`fatal: Remote branch ... not found`, `fatal: could not read
+	// Username`, `repository not found`) só existe no stderr do próprio git.
+	var saida bytes.Buffer
+	if _, err := clonar(ctx, repoURL, branch, dir, &saida); err != nil {
+		return Deteccao{}, fmt.Errorf("git clone falhou: %s", strings.TrimSpace(saida.String()))
 	}
 	return detectarProjeto(dir), nil
 }
-
-// descartaLog existe porque clonar() escreve progresso num io.Writer — a
-// detecção não tem UI de log, só quer o resultado final.
-type descartaLog struct{}
-
-func (descartaLog) Write(p []byte) (int, error) { return len(p), nil }

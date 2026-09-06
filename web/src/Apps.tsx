@@ -315,7 +315,11 @@ function NovaApp({ aoCriar }: { aoCriar: () => void }) {
   const [form, setForm] = useState({
     nome: '',
     repo_url: '',
-    branch: 'main',
+    // Vazio, não "main": nem todo repositório usa esse nome de branch
+    // (comum em projetos mais antigos, ou fora do GitHub). Vazio deixa o
+    // git resolver sozinho a branch padrão do remoto — forçar um valor
+    // aqui é o motivo mais comum de "git clone: exit status 128".
+    branch: '',
     porta: 3000,
     dominio: '',
   })
@@ -347,7 +351,7 @@ function NovaApp({ aoCriar }: { aoCriar: () => void }) {
     try {
       await api('/api/apps', { method: 'POST', body: JSON.stringify(form) })
       toast.success(`app ${form.nome} criada`)
-      setForm({ nome: '', repo_url: '', branch: 'main', porta: 3000, dominio: '' })
+      setForm({ nome: '', repo_url: '', branch: '', porta: 3000, dominio: '' })
       aoCriar()
     } catch (e) {
       toast.error('Não foi possível criar', { description: msg(e) })
@@ -400,9 +404,10 @@ function NovaApp({ aoCriar }: { aoCriar: () => void }) {
           </div>
           <Campo
             id="branch"
-            label="Branch"
+            label="Branch (opcional)"
             valor={form.branch}
             onChange={(v) => setForm({ ...form, branch: v })}
+            placeholder="em branco = branch padrão do repositório"
           />
           <Campo
             id="porta"

@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -141,6 +144,68 @@ func TestDetectarGoRailsPHPEstatico(t *testing.T) {
 		if d.Framework != c.framework {
 			t.Errorf("%s: esperava %s, veio %+v", c.arquivo, c.framework, d)
 		}
+	}
+}
+
+// repoGitDeTeste cria um repositório git real (com commit), usando o nome
+// de branch pedido — para testar exatamente o caso que quebrava: repo cuja
+// branch padrão não é "main".
+func repoGitDeTeste(t *testing.T, branch string, arquivos map[string]string) string {
+	t.Helper()
+	dir := projetoDeTeste(t, arquivos)
+	for _, args := range [][]string{
+		{"init", "-q", "-b", branch},
+		{"-C", dir, "config", "user.email", "teste@zeno.local"},
+		{"-C", dir, "config", "user.name", "Zeno Teste"},
+		{"-C", dir, "add", "-A"},
+		{"-C", dir, "commit", "-q", "-m", "commit de teste"},
+	} {
+		cmd := exec.Command("git", args...)
+		if !strings.HasPrefix(args[0], "-C") {
+			cmd.Dir = dir
+		}
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	return dir
+}
+
+// Regressão: um usuário tentou detectar um repositório real do GitHub e
+// tomou "git clone: exit status 128" sem nenhuma pista do motivo. A causa
+// raiz era dupla — a mensagem de erro escondia a saída real do git, E o
+// campo de branch vinha preenchido com "main" mesmo sem o usuário mexer,
+// quebrando qualquer repositório cuja branch padrão seja outra (comum:
+// "master"). Este teste cobre a segunda causa: branch vazio precisa
+// resolver a branch padrão do remoto sozinho, não forçar "main".
+func TestDetectarRepoComBranchVazioResolveBranchPadrao(t *testing.T) {
+	dir := repoGitDeTeste(t, "master", map[string]string{"go.mod": "module teste\n\ngo 1.25\n"})
+
+	d, err := detectarRepo(context.Background(), dir, "")
+	if err != nil {
+		t.Fatalf("detectarRepo com branch vazio deveria funcionar contra repo 'master': %v", err)
+	}
+	if d.Framework != "Go" {
+		t.Errorf("esperava detectar Go, veio %+v", d)
+	}
+}
+
+// Regressão: a mensagem de erro precisa carregar o texto real do git, não
+// só o exit code — é a diferença entre "não sei o que houve" e "ah, é a
+// branch errada" ou "repo não existe".
+func TestDetectarRepoErroDeCloneExpoeMensagemDoGit(t *testing.T) {
+	dir := repoGitDeTeste(t, "master", map[string]string{"README.md": "oi"})
+
+	_, err := detectarRepo(context.Background(), dir, "branch-que-nao-existe")
+	if err == nil {
+		t.Fatal("esperava erro pedindo uma branch que não existe")
+	}
+	msg := strings.ToLower(err.Error())
+	if !strings.Contains(msg, "branch") {
+		t.Errorf("erro deveria conter a mensagem real do git (menciona branch), veio: %v", err)
+	}
+	if strings.Contains(msg, "exit status") && !strings.Contains(msg, "not found") && !strings.Contains(msg, "não") {
+		t.Errorf("erro parece ter voltado a ser só o exit code genérico: %v", err)
 	}
 }
 

@@ -28,9 +28,11 @@ func rotasDeploy(mux *http.ServeMux, dp *deploys) {
 			erroHTTP(w, http.StatusBadRequest, "repo_url é obrigatório")
 			return
 		}
-		if corpo.Branch == "" {
-			corpo.Branch = "main"
-		}
+		// Branch vazio não vira "main": nem todo repositório usa esse nome
+		// (projetos mais antigos, ou qualquer coisa fora do GitHub, muitas
+		// vezes ainda usam "master"). git clone sem --branch resolve sozinho
+		// a branch padrão do remoto — forçar um nome aqui só quebra clone de
+		// quem não usa main.
 
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
