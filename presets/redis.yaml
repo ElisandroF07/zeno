@@ -1,0 +1,18 @@
+id: redis
+nome: Redis
+categoria: Cache
+descricao: Cache e estruturas de dados em memória.
+icone: redis
+image: redis:8-alpine
+porta: 6379
+volumes:
+  - /data
+env:
+  - key: REDIS_PASSWORD
+    label: Senha
+    descricao: Exigida em toda conexão (requirepass).
+    tipo: senha
+    gerar: senha
+cmd: ["redis-server", "--requirepass", "{{.Env.REDIS_PASSWORD}}", "--appendonly", "yes"]
+injeta:
+  REDIS_URL: "redis://:{{.Env.REDIS_PASSWORD}}@{{.Host}}:6379"

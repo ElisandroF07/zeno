@@ -1,0 +1,29 @@
+id: mysql
+nome: MySQL
+categoria: Banco de dados
+descricao: Banco relacional. Versão LTS 8.4.
+icone: mysql
+image: mysql:8.4
+porta: 3306
+volumes:
+  - /var/lib/mysql
+env:
+  - key: MYSQL_DATABASE
+    label: Banco inicial
+    padrao: zeno
+    obrigatorio: true
+  - key: MYSQL_USER
+    label: Usuário
+    descricao: Não pode ser "root" — o MySQL recusa.
+    padrao: zeno
+    obrigatorio: true
+  - key: MYSQL_PASSWORD
+    label: Senha do usuário
+    tipo: senha
+    gerar: senha
+  - key: MYSQL_ROOT_PASSWORD
+    label: Senha do root
+    tipo: senha
+    gerar: senha
+injeta:
+  DATABASE_URL: "mysql://{{.Env.MYSQL_USER}}:{{.Env.MYSQL_PASSWORD}}@{{.Host}}:3306/{{.Env.MYSQL_DATABASE}}"

@@ -1,0 +1,20 @@
+id: gitea
+nome: Gitea
+categoria: Dev tools
+descricao: Git self-hosted, leve. Issues, PRs, wiki, CI (Actions) opcional.
+icone: gitea
+image: gitea/gitea:1.22
+porta: 3000
+volumes:
+  - /data
+env:
+  - key: GITEA__security__SECRET_KEY
+    label: Secret key
+    tipo: senha
+    gerar: senha
+  - key: GITEA__server__ROOT_URL
+    label: URL pública
+    descricao: Ex. https://git.meudominio.com/ — inclua a barra final.
+    obrigatorio: true
+injeta:
+  GITEA_URL: "http://{{.Host}}:3000"

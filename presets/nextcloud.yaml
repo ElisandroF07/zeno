@@ -1,0 +1,20 @@
+id: nextcloud
+nome: Nextcloud
+categoria: Produtividade
+descricao: Armazenamento de arquivos, calendário e contatos self-hosted.
+icone: nextcloud
+image: nextcloud:29
+porta: 80
+volumes:
+  - /var/www/html
+env:
+  - key: NEXTCLOUD_ADMIN_USER
+    label: Usuário admin
+    padrao: admin
+    obrigatorio: true
+  - key: NEXTCLOUD_ADMIN_PASSWORD
+    label: Senha do admin
+    tipo: senha
+    gerar: senha
+injeta:
+  NEXTCLOUD_URL: "http://{{.Host}}:80"

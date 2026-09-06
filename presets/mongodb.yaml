@@ -1,0 +1,20 @@
+id: mongodb
+nome: MongoDB
+categoria: Banco de dados
+descricao: Banco de documentos.
+icone: mongodb
+image: mongo:8
+porta: 27017
+volumes:
+  - /data/db
+env:
+  - key: MONGO_INITDB_ROOT_USERNAME
+    label: Usuário root
+    padrao: zeno
+    obrigatorio: true
+  - key: MONGO_INITDB_ROOT_PASSWORD
+    label: Senha do root
+    tipo: senha
+    gerar: senha
+injeta:
+  MONGO_URL: "mongodb://{{.Env.MONGO_INITDB_ROOT_USERNAME}}:{{.Env.MONGO_INITDB_ROOT_PASSWORD}}@{{.Host}}:27017/?authSource=admin"

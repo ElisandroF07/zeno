@@ -1,0 +1,12 @@
+id: stalwart
+nome: Stalwart Mail
+categoria: Comunicação
+descricao: Servidor de email completo (SMTP/IMAP/JMAP) num binário só.
+icone: mail
+image: stalwartlabs/stalwart:latest
+porta: 8080
+volumes:
+  - /opt/stalwart/data
+admin_ui:
+  porta: 8080
+  nome: Painel

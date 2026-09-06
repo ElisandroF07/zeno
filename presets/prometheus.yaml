@@ -1,0 +1,12 @@
+id: prometheus
+nome: Prometheus
+categoria: Monitoramento
+descricao: Coleta e armazena métricas por scraping. Combine com Grafana.
+icone: prometheus
+image: prom/prometheus:v2.54.1
+porta: 9090
+volumes:
+  - /prometheus
+admin_ui:
+  porta: 9090
+  nome: Painel

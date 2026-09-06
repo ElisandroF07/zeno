@@ -1,0 +1,12 @@
+id: metabase
+nome: Metabase
+categoria: Analytics
+descricao: BI e dashboards sobre bancos de dados existentes. Console próprio.
+icone: metabase
+image: metabase/metabase:v0.51.4
+porta: 3000
+volumes:
+  - /metabase-data
+admin_ui:
+  porta: 3000
+  nome: Painel

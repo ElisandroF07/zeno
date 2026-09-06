@@ -1,0 +1,15 @@
+id: mosquitto
+nome: Mosquitto
+categoria: IoT
+# ponytail: sem mosquitto.conf customizado a imagem recusa conexão anônima
+# remota por padrão (allow_anonymous false) — funciona para teste local,
+# produção exige editar a config dentro do volume manualmente até o Zeno
+# ganhar um editor de config genérico por serviço.
+descricao: Broker MQTT leve — sensores, automação residencial, telemetria.
+icone: eclipsemosquitto
+image: eclipse-mosquitto:2
+porta: 1883
+volumes:
+  - /mosquitto/data
+injeta:
+  MQTT_URL: "mqtt://{{.Host}}:1883"

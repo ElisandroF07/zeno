@@ -1,0 +1,20 @@
+id: vikunja
+nome: Vikunja
+categoria: Produtividade
+descricao: Gestão de tarefas self-hosted, roda com SQLite embutido.
+icone: vikunja
+image: vikunja/vikunja:0.24.6
+porta: 3456
+volumes:
+  - /app/vikunja/files
+env:
+  - key: VIKUNJA_SERVICE_JWTSECRET
+    label: JWT secret
+    tipo: senha
+    gerar: senha
+  - key: VIKUNJA_SERVICE_PUBLICURL
+    label: URL pública
+    descricao: Ex. https://tarefas.meudominio.com
+    obrigatorio: true
+injeta:
+  VIKUNJA_URL: "http://{{.Host}}:3456"

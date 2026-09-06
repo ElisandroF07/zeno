@@ -1,0 +1,13 @@
+id: calibre-web
+nome: Calibre-Web
+categoria: Mídia
+descricao: Biblioteca de ebooks com leitor no navegador.
+icone: calibreweb
+image: linuxserver/calibre-web:latest
+porta: 8083
+volumes:
+  - /config
+  - /books
+admin_ui:
+  porta: 8083
+  nome: Painel

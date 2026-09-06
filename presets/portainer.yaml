@@ -1,0 +1,13 @@
+id: portainer
+nome: Portainer
+categoria: Dev tools
+descricao: UI de gestão de containers Docker. Console próprio completo.
+icone: portainer
+image: portainer/portainer-ce:2.21.4
+porta: 9443
+volumes:
+  - /data
+docker_socket: true   # gere containers do host — é o propósito da ferramenta
+admin_ui:
+  porta: 9443
+  nome: Painel

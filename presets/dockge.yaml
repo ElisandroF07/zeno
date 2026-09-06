@@ -1,0 +1,13 @@
+id: dockge
+nome: Dockge
+categoria: Dev tools
+descricao: UI para gerir docker-compose.yml — do mesmo autor do Uptime Kuma.
+icone: docker
+image: louislam/dockge:1
+porta: 5001
+volumes:
+  - /app/data
+docker_socket: true   # gere stacks compose do host — é o propósito da ferramenta
+admin_ui:
+  porta: 5001
+  nome: Painel

@@ -1,0 +1,9 @@
+node_modules/
+web/dist/
+zeno
+zeno.exe
+zeno.db
+zeno.db-wal
+zeno.db-shm
+logs/
+*.log

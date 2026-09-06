@@ -1,0 +1,17 @@
+id: grafana
+nome: Grafana
+categoria: Monitoramento
+descricao: Dashboards e alertas sobre qualquer fonte de dados. Console próprio.
+icone: grafana
+image: grafana/grafana:11.1.4
+porta: 3000
+volumes:
+  - /var/lib/grafana
+env:
+  - key: GF_SECURITY_ADMIN_PASSWORD
+    label: Senha do admin
+    tipo: senha
+    gerar: senha
+admin_ui:
+  porta: 3000
+  nome: Painel

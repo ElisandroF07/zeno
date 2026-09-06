@@ -1,0 +1,16 @@
+id: ghost
+nome: Ghost
+categoria: CMS
+descricao: Blog e newsletter. Roda com SQLite embutido sem precisar de MySQL.
+icone: ghost
+image: ghost:5
+porta: 2368
+volumes:
+  - /var/lib/ghost/content
+env:
+  - key: url
+    label: URL pública
+    descricao: Ex. https://blog.meudominio.com — Ghost usa para gerar links.
+    obrigatorio: true
+injeta:
+  GHOST_URL: "http://{{.Host}}:2368"

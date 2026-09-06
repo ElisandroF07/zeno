@@ -1,0 +1,9 @@
+id: memcached
+nome: Memcached
+categoria: Cache
+descricao: Cache de objetos em memória, mais simples que Redis.
+icone: memcached
+image: memcached:1.6-alpine
+porta: 11211
+injeta:
+  MEMCACHED_URL: "{{.Host}}:11211"

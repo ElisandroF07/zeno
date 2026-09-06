@@ -1,0 +1,9 @@
+id: homepage
+nome: Homepage
+categoria: Dashboards
+descricao: Dashboard estático para os links e status dos seus serviços.
+icone: homepage
+image: ghcr.io/gethomepage/homepage:latest
+porta: 3000
+volumes:
+  - /app/config

@@ -1,0 +1,13 @@
+id: jellyfin
+nome: Jellyfin
+categoria: Mídia
+descricao: Streaming de filmes, séries e música. Console próprio completo.
+icone: jellyfin
+image: jellyfin/jellyfin:latest
+porta: 8096
+volumes:
+  - /config
+  - /cache
+admin_ui:
+  porta: 8096
+  nome: Painel

@@ -1,0 +1,20 @@
+id: couchdb
+nome: CouchDB
+categoria: Banco de dados
+descricao: Banco de documentos com replicação e API HTTP nativa.
+icone: apachecouchdb
+image: docker.io/library/couchdb:3
+porta: 5984
+volumes:
+  - /opt/couchdb/data
+env:
+  - key: COUCHDB_USER
+    label: Usuário admin
+    padrao: zeno
+    obrigatorio: true
+  - key: COUCHDB_PASSWORD
+    label: Senha
+    tipo: senha
+    gerar: senha
+injeta:
+  COUCHDB_URL: "http://{{.Env.COUCHDB_USER}}:{{.Env.COUCHDB_PASSWORD}}@{{.Host}}:5984"

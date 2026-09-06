@@ -1,0 +1,17 @@
+id: nocodb
+nome: NocoDB
+categoria: Produtividade
+descricao: Planilha sobre banco relacional — tipo Airtable, self-hosted.
+icone: nocodb
+image: nocodb/nocodb:0.257.2
+porta: 8080
+volumes:
+  - /usr/app/data
+env:
+  - key: NC_AUTH_JWT_SECRET
+    label: JWT secret
+    tipo: senha
+    gerar: senha
+admin_ui:
+  porta: 8080
+  nome: Painel

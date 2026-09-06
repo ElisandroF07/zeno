@@ -1,0 +1,28 @@
+id: mariadb
+nome: MariaDB
+categoria: Banco de dados
+descricao: Fork do MySQL, compatível. É o que WordPress/Nextcloud recomendam.
+icone: mariadb
+image: docker.io/library/mariadb:11
+porta: 3306
+volumes:
+  - /var/lib/mysql
+env:
+  - key: MARIADB_DATABASE
+    label: Banco inicial
+    padrao: zeno
+    obrigatorio: true
+  - key: MARIADB_USER
+    label: Usuário
+    padrao: zeno
+    obrigatorio: true
+  - key: MARIADB_PASSWORD
+    label: Senha do usuário
+    tipo: senha
+    gerar: senha
+  - key: MARIADB_ROOT_PASSWORD
+    label: Senha do root
+    tipo: senha
+    gerar: senha
+injeta:
+  DATABASE_URL: "mysql://{{.Env.MARIADB_USER}}:{{.Env.MARIADB_PASSWORD}}@{{.Host}}:3306/{{.Env.MARIADB_DATABASE}}"

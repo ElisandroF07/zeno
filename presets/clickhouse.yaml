@@ -1,0 +1,20 @@
+id: clickhouse
+nome: ClickHouse
+categoria: Banco de dados
+descricao: Banco colunar para analytics — consultas agregadas em bilhões de linhas.
+icone: clickhouse
+image: clickhouse/clickhouse-server:24.8
+porta: 8123
+volumes:
+  - /var/lib/clickhouse
+env:
+  - key: CLICKHOUSE_USER
+    label: Usuário
+    padrao: zeno
+    obrigatorio: true
+  - key: CLICKHOUSE_PASSWORD
+    label: Senha
+    tipo: senha
+    gerar: senha
+injeta:
+  CLICKHOUSE_URL: "http://{{.Env.CLICKHOUSE_USER}}:{{.Env.CLICKHOUSE_PASSWORD}}@{{.Host}}:8123"

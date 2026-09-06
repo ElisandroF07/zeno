@@ -1,0 +1,4 @@
+# Scripts shell precisam de LF sempre — CRLF quebra o shebang e a execução
+# em qualquer shell Linux real. Sem isso, clonar no Windows com
+# core.autocrlf=true convertia install.sh na hora do checkout.
+*.sh text eol=lf

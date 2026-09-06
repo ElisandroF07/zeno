@@ -1,0 +1,25 @@
+id: postgres
+nome: PostgreSQL
+categoria: Banco de dados
+descricao: Banco relacional. O padrão para a maioria das apps.
+icone: postgresql
+image: postgres:17-alpine
+porta: 5432
+volumes:
+  - /var/lib/postgresql/data
+env:
+  - key: POSTGRES_USER
+    label: Usuário
+    padrao: zeno
+    obrigatorio: true
+  - key: POSTGRES_PASSWORD
+    label: Senha
+    tipo: senha
+    gerar: senha
+  - key: POSTGRES_DB
+    label: Banco inicial
+    descricao: Criado no primeiro boot.
+    padrao: zeno
+    obrigatorio: true
+injeta:
+  DATABASE_URL: "postgres://{{.Env.POSTGRES_USER}}:{{.Env.POSTGRES_PASSWORD}}@{{.Host}}:5432/{{.Env.POSTGRES_DB}}?sslmode=disable"

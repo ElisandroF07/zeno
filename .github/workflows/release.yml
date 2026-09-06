@@ -1,0 +1,74 @@
+name: release
+
+# Dispara ao empurrar uma tag v*.*.* (ex. v0.1.0). workflow_dispatch existe
+# só para reprocessar uma tag já publicada sem precisar recriá-la.
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag já existente para reprocessar (ex. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write # gh release create precisa disso
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      # O front vira parte do binário via go:embed — sem isso o Go nem
+      # compila (main.go espera web/dist existir).
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build do frontend
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.25"
+          cache-dependency-path: go.sum
+
+      - name: Compilar para linux/amd64 e linux/arm64
+        env:
+          # CGO_ENABLED=0 não é opcional: modernc.org/sqlite é puro Go
+          # justamente para permitir isto — cross-compilar sem toolchain C.
+          CGO_ENABLED: "0"
+        run: |
+          mkdir -p dist
+          tag="${{ inputs.tag || github.ref_name }}"
+          for arch in amd64 arm64; do
+            echo "building linux/$arch"
+            GOOS=linux GOARCH="$arch" go build -trimpath \
+              -ldflags "-s -w -X main.versao=${tag}" \
+              -o "dist/zeno-linux-${arch}" .
+          done
+          cp install.sh dist/install.sh
+
+      - name: Conferir os binários gerados
+        run: |
+          cd dist
+          sha256sum ./* | tee checksums.txt
+          for f in ./zeno-linux-*; do file "$f"; done
+
+      - name: Publicar release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          gh release create "$tag" dist/* \
+            --title "Zeno $tag" \
+            --generate-notes \
+            --repo "${{ github.repository }}"

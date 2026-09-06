@@ -1,0 +1,20 @@
+id: vaultwarden
+nome: Vaultwarden
+categoria: Segurança
+descricao: Servidor Bitwarden compatível, leve. Cofre de senhas self-hosted.
+icone: bitwarden
+image: vaultwarden/server:1.32.5
+porta: 80
+volumes:
+  - /data
+env:
+  - key: ADMIN_TOKEN
+    label: Token do painel /admin
+    tipo: senha
+    gerar: senha
+  - key: SIGNUPS_ALLOWED
+    label: Permitir novos cadastros
+    padrao: "false"
+    obrigatorio: true
+injeta:
+  VAULTWARDEN_URL: "http://{{.Host}}:80"

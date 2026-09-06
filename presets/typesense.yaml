@@ -1,0 +1,18 @@
+id: typesense
+nome: Typesense
+categoria: Busca
+descricao: Motor de busca full-text, alternativa ao Meilisearch/Algolia.
+icone: typesense
+image: typesense/typesense:27.1
+porta: 8108
+volumes:
+  - /data
+cmd: ["--data-dir", "/data", "--api-key", "{{.Env.TYPESENSE_API_KEY}}"]
+env:
+  - key: TYPESENSE_API_KEY
+    label: API key
+    tipo: senha
+    gerar: senha
+injeta:
+  TYPESENSE_URL: "http://{{.Host}}:8108"
+  TYPESENSE_API_KEY: "{{.Env.TYPESENSE_API_KEY}}"

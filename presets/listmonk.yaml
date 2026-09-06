@@ -1,0 +1,30 @@
+id: listmonk
+nome: Listmonk
+categoria: Comunicação
+# ponytail: o schema do Postgres precisa ser criado com `--install` antes do
+# primeiro boot normal — sem um passo de setup no Zeno, isso é manual via
+# `docker exec <container> ./listmonk --install` na primeira vez.
+descricao: >-
+  Newsletter e campanhas de email. Exige um Postgres — suba um antes e
+  vincule aqui.
+icone: listmonk
+image: listmonk/listmonk:latest
+porta: 9000
+env:
+  - key: LISTMONK_db__host
+    label: Host do Postgres
+    descricao: Nome do container do serviço Postgres vinculado.
+    obrigatorio: true
+  - key: LISTMONK_db__user
+    label: Usuário do Postgres
+    obrigatorio: true
+  - key: LISTMONK_db__password
+    label: Senha do Postgres
+    tipo: senha
+    obrigatorio: true
+  - key: LISTMONK_db__database
+    label: Banco
+    padrao: listmonk
+    obrigatorio: true
+injeta:
+  LISTMONK_URL: "http://{{.Host}}:9000"

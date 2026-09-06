@@ -1,0 +1,23 @@
+id: rabbitmq
+nome: RabbitMQ
+categoria: Mensageria
+descricao: Broker AMQP. Já traz o painel de administração oficial.
+icone: rabbitmq
+image: rabbitmq:4-management-alpine
+porta: 5672
+volumes:
+  - /var/lib/rabbitmq
+env:
+  - key: RABBITMQ_DEFAULT_USER
+    label: Usuário
+    padrao: zeno
+    obrigatorio: true
+  - key: RABBITMQ_DEFAULT_PASS
+    label: Senha
+    tipo: senha
+    gerar: senha
+admin_ui:
+  porta: 15672
+  nome: Management Plugin
+injeta:
+  AMQP_URL: "amqp://{{.Env.RABBITMQ_DEFAULT_USER}}:{{.Env.RABBITMQ_DEFAULT_PASS}}@{{.Host}}:5672/"

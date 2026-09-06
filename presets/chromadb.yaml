@@ -1,0 +1,11 @@
+id: chromadb
+nome: Chroma
+categoria: IA / Vector DB
+descricao: Banco vetorial embutível, popular em stacks de RAG com Python.
+icone: chromadb
+image: chromadb/chroma:0.5.5
+porta: 8000
+volumes:
+  - /chroma/chroma
+injeta:
+  CHROMA_URL: "http://{{.Host}}:8000"

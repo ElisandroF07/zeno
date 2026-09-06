@@ -1,0 +1,21 @@
+id: surrealdb
+nome: SurrealDB
+categoria: Banco de dados
+descricao: Banco multi-modelo (documentos, grafo, relacional) numa API só.
+icone: surrealdb
+image: surrealdb/surrealdb:v1.5.4
+porta: 8000
+volumes:
+  - /data
+cmd: ["start", "--user", "{{.Env.SURREAL_USER}}", "--pass", "{{.Env.SURREAL_PASS}}", "file:/data/db"]
+env:
+  - key: SURREAL_USER
+    label: Usuário
+    padrao: zeno
+    obrigatorio: true
+  - key: SURREAL_PASS
+    label: Senha
+    tipo: senha
+    gerar: senha
+injeta:
+  SURREALDB_URL: "http://{{.Host}}:8000"

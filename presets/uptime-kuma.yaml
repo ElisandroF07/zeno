@@ -1,0 +1,12 @@
+id: uptime-kuma
+nome: Uptime Kuma
+categoria: Monitoramento
+descricao: Monitor de uptime tipo status page, com UI própria e alertas.
+icone: uptimekuma
+image: louislam/uptime-kuma:1
+porta: 3001
+volumes:
+  - /app/data
+admin_ui:
+  porta: 3001
+  nome: Painel

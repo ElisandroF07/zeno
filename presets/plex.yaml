@@ -1,0 +1,20 @@
+id: plex
+nome: Plex
+categoria: Mídia
+descricao: Streaming de mídia com metadados automáticos. Console próprio.
+icone: plex
+image: linuxserver/plex:latest
+porta: 32400
+volumes:
+  - /config
+env:
+  - key: PLEX_CLAIM
+    label: Claim token
+    descricao: Gere em https://plex.tv/claim (válido por 4 minutos).
+  - key: TZ
+    label: Fuso horário
+    padrao: UTC
+    obrigatorio: true
+admin_ui:
+  porta: 32400
+  nome: Painel

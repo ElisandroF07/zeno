@@ -1,0 +1,20 @@
+id: wekan
+nome: Wekan
+categoria: Produtividade
+descricao: >-
+  Kanban open-source (tipo Trello). Exige um MongoDB — suba um antes e
+  vincule aqui.
+icone: trello
+image: wekanteam/wekan:latest
+porta: 8080
+env:
+  - key: MONGO_URL
+    label: URL do MongoDB
+    descricao: Do serviço MongoDB vinculado, ex. mongodb://zeno-quadros:27017/wekan.
+    obrigatorio: true
+  - key: ROOT_URL
+    label: URL pública
+    descricao: Ex. https://quadros.meudominio.com
+    obrigatorio: true
+injeta:
+  WEKAN_URL: "http://{{.Host}}:8080"

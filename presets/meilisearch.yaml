@@ -1,0 +1,17 @@
+id: meilisearch
+nome: Meilisearch
+categoria: Busca
+descricao: Motor de busca full-text rápido, API simples.
+icone: meilisearch
+image: getmeili/meilisearch:v1.10
+porta: 7700
+volumes:
+  - /meili_data
+env:
+  - key: MEILI_MASTER_KEY
+    label: Master key
+    tipo: senha
+    gerar: senha
+injeta:
+  MEILISEARCH_URL: "http://{{.Host}}:7700"
+  MEILISEARCH_KEY: "{{.Env.MEILI_MASTER_KEY}}"

@@ -1,0 +1,17 @@
+id: baserow
+nome: Baserow
+categoria: Produtividade
+descricao: Planilha/banco sem código, alternativa ao Airtable.
+icone: baserow
+image: baserow/baserow:2.3.3
+porta: 80
+volumes:
+  - /baserow/data
+env:
+  - key: BASEROW_PUBLIC_URL
+    label: URL pública
+    descricao: Ex. https://baserow.meudominio.com
+    obrigatorio: true
+admin_ui:
+  porta: 80
+  nome: Painel

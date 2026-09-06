@@ -1,0 +1,21 @@
+id: photoprism
+nome: PhotoPrism
+categoria: Mídia
+descricao: Galeria de fotos com reconhecimento de imagem automático.
+icone: photoprism
+image: photoprism/photoprism:latest
+porta: 2342
+volumes:
+  - /photoprism/originals
+  - /photoprism/storage
+env:
+  - key: PHOTOPRISM_ADMIN_PASSWORD
+    label: Senha do admin
+    tipo: senha
+    gerar: senha
+  - key: PHOTOPRISM_SITE_URL
+    label: URL pública
+    descricao: Ex. https://fotos.meudominio.com/
+    obrigatorio: true
+injeta:
+  PHOTOPRISM_URL: "http://{{.Host}}:2342"

@@ -1,0 +1,11 @@
+id: qdrant
+nome: Qdrant
+categoria: IA / Vector DB
+descricao: Banco vetorial para busca semântica e RAG.
+icone: qdrant
+image: qdrant/qdrant:v1.11.0
+porta: 6333
+volumes:
+  - /qdrant/storage
+injeta:
+  QDRANT_URL: "http://{{.Host}}:6333"

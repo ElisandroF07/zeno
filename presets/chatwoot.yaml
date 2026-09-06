@@ -1,0 +1,33 @@
+id: chatwoot
+nome: Chatwoot
+categoria: Comunicação
+# ponytail: imagem oficial roda todos os processos (web+worker) num container
+# só via entrypoint próprio, mas ainda exige rodar a migration do banco na
+# primeira vez (`docker exec <container> bundle exec rails db:chatwoot_prepare`).
+descricao: >-
+  Atendimento/chat tipo Intercom. Exige Postgres e Redis — suba os dois
+  antes e vincule aqui.
+icone: chatwoot
+image: chatwoot/chatwoot:latest
+porta: 3000
+env:
+  - key: POSTGRES_HOST
+    label: Host do Postgres
+    obrigatorio: true
+  - key: POSTGRES_USERNAME
+    label: Usuário do Postgres
+    obrigatorio: true
+  - key: POSTGRES_PASSWORD
+    label: Senha do Postgres
+    tipo: senha
+    obrigatorio: true
+  - key: REDIS_URL
+    label: URL do Redis
+    descricao: Ex. redis://zeno-cache:6379
+    obrigatorio: true
+  - key: SECRET_KEY_BASE
+    label: Secret key base
+    tipo: senha
+    gerar: senha
+injeta:
+  CHATWOOT_URL: "http://{{.Host}}:3000"

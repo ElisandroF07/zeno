@@ -1,0 +1,29 @@
+id: wordpress
+nome: WordPress
+categoria: CMS
+descricao: >-
+  CMS mais usado do mundo. Exige um MySQL/MariaDB — suba um antes e vincule
+  aqui, preenchendo os campos abaixo com os dados dele.
+icone: wordpress
+image: wordpress:6
+porta: 80
+volumes:
+  - /var/www/html
+env:
+  - key: WORDPRESS_DB_HOST
+    label: Host do MySQL
+    descricao: Nome do container do serviço MySQL vinculado, ex. zeno-blog-db.
+    obrigatorio: true
+  - key: WORDPRESS_DB_USER
+    label: Usuário do MySQL
+    obrigatorio: true
+  - key: WORDPRESS_DB_PASSWORD
+    label: Senha do MySQL
+    tipo: senha
+    obrigatorio: true
+  - key: WORDPRESS_DB_NAME
+    label: Banco
+    padrao: wordpress
+    obrigatorio: true
+injeta:
+  WORDPRESS_URL: "http://{{.Host}}:80"

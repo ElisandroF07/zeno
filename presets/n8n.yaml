@@ -1,0 +1,24 @@
+id: n8n
+nome: n8n
+categoria: Automação
+descricao: Automação de workflows tipo Zapier, self-hosted.
+icone: n8n
+image: n8nio/n8n:latest
+porta: 5678
+volumes:
+  - /home/node/.n8n
+env:
+  - key: N8N_BASIC_AUTH_ACTIVE
+    label: Exigir login
+    padrao: "true"
+    obrigatorio: true
+  - key: N8N_BASIC_AUTH_USER
+    label: Usuário
+    padrao: admin
+    obrigatorio: true
+  - key: N8N_BASIC_AUTH_PASSWORD
+    label: Senha
+    tipo: senha
+    gerar: senha
+injeta:
+  N8N_URL: "http://{{.Host}}:5678"

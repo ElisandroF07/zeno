@@ -1,0 +1,31 @@
+id: paperless-ngx
+nome: Paperless-ngx
+categoria: Produtividade
+descricao: >-
+  Arquivo de documentos com OCR e busca. Exige um Redis — suba um antes e
+  vincule aqui.
+icone: paperlessngx
+image: ghcr.io/paperless-ngx/paperless-ngx:latest
+porta: 8000
+volumes:
+  - /usr/src/paperless/data
+  - /usr/src/paperless/media
+env:
+  - key: PAPERLESS_REDIS
+    label: URL do Redis
+    descricao: Do serviço Redis vinculado, ex. redis://zeno-cache:6379.
+    obrigatorio: true
+  - key: PAPERLESS_SECRET_KEY
+    label: Secret key
+    tipo: senha
+    gerar: senha
+  - key: PAPERLESS_ADMIN_USER
+    label: Usuário admin
+    padrao: admin
+    obrigatorio: true
+  - key: PAPERLESS_ADMIN_PASSWORD
+    label: Senha do admin
+    tipo: senha
+    gerar: senha
+injeta:
+  PAPERLESS_URL: "http://{{.Host}}:8000"

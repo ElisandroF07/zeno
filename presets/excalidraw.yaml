@@ -1,0 +1,7 @@
+id: excalidraw
+nome: Excalidraw
+categoria: Produtividade
+descricao: Quadro branco colaborativo — diagramas e esboços à mão livre.
+icone: excalidraw
+image: excalidraw/excalidraw:latest
+porta: 80
