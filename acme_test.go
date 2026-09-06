@@ -134,6 +134,66 @@ func TestEmitirNaoDuplicaParaOMesmoHostnameEmParalelo(t *testing.T) {
 	}
 }
 
+func TestBackoffCresceExponencialECapaEmUmaHora(t *testing.T) {
+	base := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	casos := []struct {
+		falhas int
+		espera time.Duration
+	}{
+		{1, 1 * time.Minute},
+		{2, 2 * time.Minute},
+		{3, 4 * time.Minute},
+		{4, 8 * time.Minute},
+		{5, 16 * time.Minute},
+		{6, 32 * time.Minute},
+		{7, 60 * time.Minute},  // já teria passado de 1h (64min); capa em 60
+		{20, 60 * time.Minute}, // continua capado, não estoura nem por overflow de shift
+	}
+	for _, c := range casos {
+		got := proximaTentativaPermitida(c.falhas, base)
+		quer := base.Add(c.espera)
+		if !got.Equal(quer) {
+			t.Errorf("falhas=%d: proximaTentativaPermitida = %v, quer %v", c.falhas, got, quer)
+		}
+	}
+}
+
+func TestBackoffSemHistoricoNaoEspera(t *testing.T) {
+	if got := proximaTentativaPermitida(0, time.Now()); !got.IsZero() {
+		t.Errorf("0 falhas deveria liberar na hora, deu %v", got)
+	}
+	if got := proximaTentativaPermitida(3, time.Time{}); !got.IsZero() {
+		t.Errorf("sem tentativa_em deveria liberar na hora, deu %v", got)
+	}
+}
+
+// A garantia que interessa de verdade: depois de 3 falhas seguidas, a
+// próxima tentativa não pode ser permitida "agora" — só passado o backoff.
+func TestGarantirCertificadosRespeitaBackoff(t *testing.T) {
+	a := acmeDeTeste(t)
+	agora := time.Now().UTC()
+	_, err := a.db.Exec(
+		`INSERT INTO certs (hostname, cert_pem, key_pem, emitido_em, expira_em, ultimo_erro, tentativa_em, falhas_consecutivas)
+		 VALUES ('quebrado.com', '', '', '', '', 'timeout', ?, 3)`,
+		agora.Format(time.RFC3339))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c, err := a.certDe("quebrado.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.FalhasConsecutivas != 3 {
+		t.Fatalf("falhas_consecutivas = %d, quer 3", c.FalhasConsecutivas)
+	}
+
+	espera := proximaTentativaPermitida(c.FalhasConsecutivas, c.TentativaEm)
+	if !time.Now().Before(espera) {
+		t.Errorf("logo após 3 falhas, ainda deveria estar em backoff — espera=%v", espera)
+	}
+}
+
 func TestCaminhosCert(t *testing.T) {
 	cert, key := caminhosCert("app.exemplo.com")
 	if cert != "/etc/nginx/certs/app.exemplo.com/fullchain.pem" {

@@ -2,7 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"log"
 	"net/url"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -69,12 +71,18 @@ CREATE TABLE IF NOT EXISTS app_services (
 -- que reemitir certificado — o que esbarra direto no rate limit da CA.
 -- No boot, o PEM do banco é regravado no container antes de qualquer coisa.
 CREATE TABLE IF NOT EXISTS certs (
-  hostname    TEXT PRIMARY KEY,
-  cert_pem    TEXT NOT NULL,
-  key_pem     TEXT NOT NULL,
-  emitido_em  TEXT NOT NULL,
-  expira_em   TEXT NOT NULL,
-  ultimo_erro TEXT
+  hostname            TEXT PRIMARY KEY,
+  cert_pem            TEXT NOT NULL,
+  key_pem             TEXT NOT NULL,
+  emitido_em          TEXT NOT NULL,
+  expira_em           TEXT NOT NULL,
+  ultimo_erro         TEXT,
+  -- Backoff exponencial entre tentativas de emissão: sem isso, um domínio
+  -- mal configurado (DNS não aponta pro host, porta 80 bloqueada) tenta nas
+  -- vezes a cada sincronizar() e esbarra no limite de 5 falhas de validação
+  -- por hora que a Let's Encrypt real aplica por hostname.
+  tentativa_em        TEXT,
+  falhas_consecutivas INTEGER NOT NULL DEFAULT 0
 );
 
 -- Config de singleton (conta ACME, e-mail). Não é preset nem app nem
@@ -137,5 +145,21 @@ func abrirDB(caminho string) (*sql.DB, error) {
 		db.Close()
 		return nil, err
 	}
+	migrarColunasNovas(db)
 	return db, nil
+}
+
+// migrarColunasNovas cobre o buraco que `CREATE TABLE IF NOT EXISTS` deixa:
+// ele não adiciona coluna em tabela que já existia de uma versão anterior do
+// Zeno. Erro "duplicate column" é esperado e ignorado — é assim que fica
+// idempotente sem precisar de lib de migration só para isto.
+func migrarColunasNovas(db *sql.DB) {
+	for _, alter := range []string{
+		`ALTER TABLE certs ADD COLUMN tentativa_em TEXT`,
+		`ALTER TABLE certs ADD COLUMN falhas_consecutivas INTEGER NOT NULL DEFAULT 0`,
+	} {
+		if _, err := db.Exec(alter); err != nil && !strings.Contains(err.Error(), "duplicate column") {
+			log.Printf("migração %q: %v", alter, err)
+		}
+	}
 }

@@ -202,11 +202,18 @@ e rehidratado sem reemissão depois de destruir e recriar o container do
 nginx. HTTP-01 exige que a CA alcance o host publicamente — não é possível
 testar contra a Let's Encrypt real sem domínio público, por isso o Pebble.
 
-**Risco não coberto ainda:** não há backoff entre tentativas falhas. Um
-domínio mal configurado (DNS não aponta para o host, porta 80 bloqueada)
-tenta emitir de novo a cada `sincronizar()` — e o Let's Encrypt real limita a
-5 falhas de validação por hora por hostname. Antes de apontar em produção,
-confirme que o domínio já resolve para a VPS antes de ligar o toggle SSL.
+**Backoff entre tentativas.** Domínio mal configurado (DNS não aponta para o
+host, porta 80 bloqueada) não martela a CA a cada `sincronizar()` — cada
+falha grava `falhas_consecutivas` e `tentativa_em` na tabela `certs`, e a
+próxima tentativa só é liberada depois de um backoff exponencial (1, 2, 4,
+8... capado em 1h). Bem abaixo do limite real do Let's Encrypt (5 falhas de
+validação por hora por hostname) já a partir da terceira tentativa seguida.
+`GET /api/certs` expõe `falhas_consecutivas` e `ultimo_erro` por hostname.
+
+Testado contra o mesmo Pebble: um domínio que não resolve (`could not
+resolve URL`) grava a falha, e a chamada seguinte — disparada segundos
+depois, de propósito — é recusada com "aguardando backoff" em vez de tentar
+de novo contra a CA.
 
 ## Testes
 

@@ -220,11 +220,13 @@ type certInfo struct {
 	// PEM nunca leva `json:"..."`: nunca pode sair pela API. A chave
 	// privada do certificado é a coisa mais sensível que este processo
 	// guarda — vazar isso é pior que vazar a senha de um serviço.
-	CertPEM    string    `json:"-"`
-	KeyPEM     string    `json:"-"`
-	EmitidoEm  time.Time `json:"emitido_em"`
-	ExpiraEm   time.Time `json:"expira_em"`
-	UltimoErro string    `json:"ultimo_erro,omitempty"`
+	CertPEM            string    `json:"-"`
+	KeyPEM             string    `json:"-"`
+	EmitidoEm          time.Time `json:"emitido_em"`
+	ExpiraEm           time.Time `json:"expira_em"`
+	UltimoErro         string    `json:"ultimo_erro,omitempty"`
+	TentativaEm        time.Time `json:"tentativa_em,omitempty"`
+	FalhasConsecutivas int       `json:"falhas_consecutivas"`
 }
 
 const (
@@ -269,12 +271,20 @@ func (a *acme) emitir(ctx context.Context, hostname string) error {
 // hostname que nunca teve certificado, um UPDATE simples não acha linha
 // nenhuma para atualizar — e o erro mais comum (porta 80 inacessível, DNS
 // errado) desapareceria em silêncio, sem sobrar em lugar nenhum pra olhar.
+//
+// Incrementa falhas_consecutivas em vez de só gravar o texto: é essa
+// contagem que faz o backoff crescer a cada tentativa malsucedida seguida —
+// ver proximaTentativaPermitida.
 func (a *acme) gravarErro(hostname string, err error) {
+	agora := time.Now().UTC().Format(time.RFC3339)
 	_, e := a.db.Exec(
-		`INSERT INTO certs (hostname, cert_pem, key_pem, emitido_em, expira_em, ultimo_erro)
-		 VALUES (?, '', '', '', '', ?)
-		 ON CONFLICT(hostname) DO UPDATE SET ultimo_erro = excluded.ultimo_erro`,
-		hostname, err.Error())
+		`INSERT INTO certs (hostname, cert_pem, key_pem, emitido_em, expira_em, ultimo_erro, tentativa_em, falhas_consecutivas)
+		 VALUES (?, '', '', '', '', ?, ?, 1)
+		 ON CONFLICT(hostname) DO UPDATE SET
+		   ultimo_erro = excluded.ultimo_erro,
+		   tentativa_em = excluded.tentativa_em,
+		   falhas_consecutivas = falhas_consecutivas + 1`,
+		hostname, err.Error(), agora)
 	if e != nil {
 		log.Printf("gravar erro de cert: %v", e)
 	}
@@ -283,22 +293,24 @@ func (a *acme) gravarErro(hostname string, err error) {
 func (a *acme) gravarCert(hostname, certPEM, keyPEM string, expiraEm time.Time) error {
 	agora := time.Now().UTC().Format(time.RFC3339)
 	_, err := a.db.Exec(
-		`INSERT INTO certs (hostname, cert_pem, key_pem, emitido_em, expira_em, ultimo_erro)
-		 VALUES (?, ?, ?, ?, ?, NULL)
+		`INSERT INTO certs (hostname, cert_pem, key_pem, emitido_em, expira_em, ultimo_erro, tentativa_em, falhas_consecutivas)
+		 VALUES (?, ?, ?, ?, ?, NULL, ?, 0)
 		 ON CONFLICT(hostname) DO UPDATE SET
 		   cert_pem = excluded.cert_pem, key_pem = excluded.key_pem,
 		   emitido_em = excluded.emitido_em, expira_em = excluded.expira_em,
-		   ultimo_erro = NULL`,
-		hostname, certPEM, keyPEM, agora, expiraEm.UTC().Format(time.RFC3339))
+		   ultimo_erro = NULL, tentativa_em = excluded.tentativa_em, falhas_consecutivas = 0`,
+		hostname, certPEM, keyPEM, agora, expiraEm.UTC().Format(time.RFC3339), agora)
 	return err
 }
 
 func (a *acme) certDe(hostname string) (*certInfo, error) {
 	var c certInfo
 	var expiraStr string
+	var tentativaStr sql.NullString
 	err := a.db.QueryRow(
-		`SELECT hostname, cert_pem, key_pem, expira_em FROM certs WHERE hostname = ?`, hostname,
-	).Scan(&c.Hostname, &c.CertPEM, &c.KeyPEM, &expiraStr)
+		`SELECT hostname, cert_pem, key_pem, expira_em, tentativa_em, falhas_consecutivas
+		 FROM certs WHERE hostname = ?`, hostname,
+	).Scan(&c.Hostname, &c.CertPEM, &c.KeyPEM, &expiraStr, &tentativaStr, &c.FalhasConsecutivas)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -306,12 +318,38 @@ func (a *acme) certDe(hostname string) (*certInfo, error) {
 		return nil, err
 	}
 	c.ExpiraEm, _ = time.Parse(time.RFC3339, expiraStr)
+	if tentativaStr.Valid {
+		c.TentativaEm, _ = time.Parse(time.RFC3339, tentativaStr.String)
+	}
 	return &c, nil
+}
+
+// --- backoff -----------------------------------------------------------
+
+// Exponencial, capado em 1h: 1, 2, 4, 8, 16, 32, 60, 60, 60min... Com isso,
+// mesmo que todas as tentativas falhem, o hostname fica bem abaixo do limite
+// real da Let's Encrypt (5 falhas de validação por hora por hostname) já a
+// partir da terceira tentativa seguida.
+const (
+	backoffBase = 1 * time.Minute
+	backoffMax  = 60 * time.Minute
+)
+
+func proximaTentativaPermitida(falhasConsecutivas int, tentativaEm time.Time) time.Time {
+	if falhasConsecutivas <= 0 || tentativaEm.IsZero() {
+		return time.Time{} // sem histórico de falha, sem espera
+	}
+	espera := backoffBase << (falhasConsecutivas - 1) // 2^(n-1) minutos
+	if espera > backoffMax || espera <= 0 {            // <=0 cobre overflow do shift
+		espera = backoffMax
+	}
+	return tentativaEm.Add(espera)
 }
 
 func (a *acme) todosCerts() ([]certInfo, error) {
 	linhas, err := a.db.Query(
-		`SELECT hostname, emitido_em, expira_em, COALESCE(ultimo_erro, '') FROM certs ORDER BY hostname`)
+		`SELECT hostname, emitido_em, expira_em, COALESCE(ultimo_erro, ''), COALESCE(tentativa_em, ''), falhas_consecutivas
+		 FROM certs ORDER BY hostname`)
 	if err != nil {
 		return nil, err
 	}
@@ -320,12 +358,15 @@ func (a *acme) todosCerts() ([]certInfo, error) {
 	var out []certInfo
 	for linhas.Next() {
 		var c certInfo
-		var emitidoStr, expiraStr string
-		if err := linhas.Scan(&c.Hostname, &emitidoStr, &expiraStr, &c.UltimoErro); err != nil {
+		var emitidoStr, expiraStr, tentativaStr string
+		if err := linhas.Scan(&c.Hostname, &emitidoStr, &expiraStr, &c.UltimoErro, &tentativaStr, &c.FalhasConsecutivas); err != nil {
 			return nil, err
 		}
 		c.EmitidoEm, _ = time.Parse(time.RFC3339, emitidoStr)
 		c.ExpiraEm, _ = time.Parse(time.RFC3339, expiraStr)
+		if tentativaStr != "" {
+			c.TentativaEm, _ = time.Parse(time.RFC3339, tentativaStr)
+		}
 		out = append(out, c)
 	}
 	return out, linhas.Err()
@@ -404,6 +445,14 @@ func (a *acme) garantirCertificados(ctx context.Context, hostnames []string) {
 		if c != nil && time.Until(c.ExpiraEm) > 30*24*time.Hour {
 			a.emitindo.Delete(h)
 			continue // válido por mais de 30 dias, nada a fazer
+		}
+		if c != nil {
+			if espera := proximaTentativaPermitida(c.FalhasConsecutivas, c.TentativaEm); time.Now().Before(espera) {
+				log.Printf("cert de %s: aguardando backoff (%d falha(s) seguida(s), próxima tentativa às %s)",
+					h, c.FalhasConsecutivas, espera.Format(time.RFC3339))
+				a.emitindo.Delete(h)
+				continue
+			}
 		}
 		err = a.emitir(ctx, h)
 		a.emitindo.Delete(h)
