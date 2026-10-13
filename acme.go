@@ -139,19 +139,11 @@ func (a *acme) carregarOuCriarConta() (*acmeUser, error) {
 }
 
 func (a *acme) lerSetting(chave string) (valor string, existe bool, err error) {
-	err = a.db.QueryRow(`SELECT value FROM settings WHERE key = ?`, chave).Scan(&valor)
-	if err == sql.ErrNoRows {
-		return "", false, nil
-	}
-	return valor, err == nil, err
+	return lerSetting(a.db, chave)
 }
 
 func (a *acme) gravarSetting(chave, valor string) error {
-	_, err := a.db.Exec(
-		`INSERT INTO settings (key, value) VALUES (?, ?)
-		 ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-		chave, valor)
-	return err
+	return gravarSetting(a.db, chave, valor)
 }
 
 // --- cliente ACME --------------------------------------------------------
@@ -340,7 +332,7 @@ func proximaTentativaPermitida(falhasConsecutivas int, tentativaEm time.Time) ti
 		return time.Time{} // sem histórico de falha, sem espera
 	}
 	espera := backoffBase << (falhasConsecutivas - 1) // 2^(n-1) minutos
-	if espera > backoffMax || espera <= 0 {            // <=0 cobre overflow do shift
+	if espera > backoffMax || espera <= 0 {           // <=0 cobre overflow do shift
 		espera = backoffMax
 	}
 	return tentativaEm.Add(espera)

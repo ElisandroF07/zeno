@@ -12,6 +12,14 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { ConexaoGithub, SeletorRepoGithub, useGithubStatus, type RepoGithub } from '@/Github'
 import { api, msg } from '@/lib/api'
 
 type Deploy = {
@@ -309,6 +317,8 @@ type Deteccao = {
   estrategia: string
   porta: number
   comentario: string
+  branch_usada: string
+  branches_disponiveis: string[] | null
 }
 
 function NovaApp({ aoCriar }: { aoCriar: () => void }) {
@@ -326,24 +336,49 @@ function NovaApp({ aoCriar }: { aoCriar: () => void }) {
   const [salvando, setSalvando] = useState(false)
   const [detectando, setDetectando] = useState(false)
   const [deteccao, setDeteccao] = useState<Deteccao | null>(null)
+  const { status: statusGithub } = useGithubStatus()
 
-  async function detectar() {
+  // Aceita repo/branch por parâmetro (não só do form) para poder disparar
+  // na hora que o usuário escolhe um repositório no seletor do GitHub, sem
+  // esperar o próximo render refletir o setForm anterior.
+  async function detectar(repoUrl = form.repo_url, branch = form.branch) {
     setDetectando(true)
     setDeteccao(null)
     try {
       const d = await api<Deteccao>('/api/apps/detectar', {
         method: 'POST',
-        body: JSON.stringify({ repo_url: form.repo_url, branch: form.branch }),
+        body: JSON.stringify({ repo_url: repoUrl, branch }),
       })
       setDeteccao(d)
-      // Só troca a porta se o detector achou uma — nunca sobrescreve o que
-      // o usuário já digitou com um zero.
-      if (d.porta > 0) setForm((f) => ({ ...f, porta: d.porta }))
+      // A branch usada vem do remoto de verdade (git ls-remote), nunca um
+      // palpite — sempre sobrescreve. Já a porta só troca se o detector
+      // achou uma, pra não sobrescrever o que o usuário já digitou com zero.
+      setForm((f) => ({ ...f, branch: d.branch_usada, porta: d.porta > 0 ? d.porta : f.porta }))
     } catch (e) {
       toast.error('Não foi possível detectar', { description: msg(e) })
     } finally {
       setDetectando(false)
     }
+  }
+
+  // Escolher um repositório do combobox faz tudo sozinho: nome, URL, branch
+  // padrão e detecção de framework — a mesma experiência de "importar
+  // projeto" da Vercel, sem o usuário digitar nada.
+  function escolherRepoGithub(repo: RepoGithub) {
+    const nomeSugerido = repo.full_name
+      .split('/')[1]
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 32)
+
+    setForm((f) => ({
+      ...f,
+      repo_url: repo.clone_url,
+      branch: repo.default_branch,
+      nome: f.nome || nomeSugerido,
+    }))
+    void detectar(repo.clone_url, repo.default_branch)
   }
 
   async function criar() {
@@ -377,6 +412,19 @@ function NovaApp({ aoCriar }: { aoCriar: () => void }) {
             onChange={(v) => setForm({ ...form, nome: v })}
             placeholder="minha-app"
           />
+          {statusGithub?.configurado && (
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Label className="text-xs">GitHub</Label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <ConexaoGithub />
+                {statusGithub.conectado && (
+                  <div className="sm:max-w-xs sm:flex-1">
+                    <SeletorRepoGithub onEscolher={(repo: RepoGithub) => escolherRepoGithub(repo)} />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="repo_url" className="text-xs">
               Repositório
@@ -395,20 +443,44 @@ function NovaApp({ aoCriar }: { aoCriar: () => void }) {
               <Button
                 type="button"
                 variant="outline"
-                onClick={detectar}
+                onClick={() => detectar()}
                 disabled={detectando || !form.repo_url}
               >
                 {detectando ? 'Clonando…' : 'Detectar'}
               </Button>
             </div>
           </div>
-          <Campo
-            id="branch"
-            label="Branch (opcional)"
-            valor={form.branch}
-            onChange={(v) => setForm({ ...form, branch: v })}
-            placeholder="em branco = branch padrão do repositório"
-          />
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="branch" className="text-xs">
+              Branch
+            </Label>
+            {deteccao?.branches_disponiveis?.length ? (
+              // Clicou em Detectar: a lista vem do remoto de verdade (git
+              // ls-remote), então escolher aqui nunca pode dar branch
+              // inexistente — a mesma garantia que a Vercel dá ao conectar
+              // um repositório.
+              <Select value={form.branch} onValueChange={(v) => setForm({ ...form, branch: v })}>
+                <SelectTrigger id="branch" className="font-mono">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {deteccao.branches_disponiveis.map((b) => (
+                    <SelectItem key={b} value={b} className="font-mono">
+                      {b}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                id="branch"
+                value={form.branch}
+                onChange={(e) => setForm({ ...form, branch: e.target.value })}
+                placeholder="em branco = branch padrão do repositório"
+                className="font-mono"
+              />
+            )}
+          </div>
           <Campo
             id="porta"
             label="Porta que a app escuta"
@@ -428,6 +500,8 @@ function NovaApp({ aoCriar }: { aoCriar: () => void }) {
           <div className="bg-muted/50 mt-4 rounded-md border p-3 text-sm">
             <p>
               Detectado: <span className="font-medium">{deteccao.framework}</span>
+              {' · branch '}
+              <span className="font-mono">{deteccao.branch_usada}</span>
               {deteccao.porta > 0 && (
                 <>
                   {' '}

@@ -23,6 +23,14 @@ const (
 
 // clonar traz o repositório raso — histórico não serve para buildar e custa
 // minutos em repositório grande.
+//
+// repoURL pode carregar credencial embutida (repo privado do GitHub via
+// comAutenticacao) — por isso todo o log daqui passa por um writer que
+// mascara qualquer coisa que pareça `://usuario:token@`, tanto a linha "$
+// git clone ..." quanto o que o próprio git ecoa no stderr em caso de erro
+// (`fatal: unable to access 'https://TOKEN@github.com/...'`). Vazar o token
+// no log do deploy — gravado em arquivo, mostrado na tela via SSE — seria
+// pior que qualquer bug que a integração resolve.
 func clonar(ctx context.Context, repoURL, branch, destino string, log io.Writer) (sha string, err error) {
 	args := []string{"clone", "--depth", "1", "--single-branch"}
 	if branch != "" {
@@ -30,7 +38,10 @@ func clonar(ctx context.Context, repoURL, branch, destino string, log io.Writer)
 	}
 	args = append(args, repoURL, destino)
 
-	if err := rodar(ctx, log, "", "git", args...); err != nil {
+	logSeguro := &writerMascarado{dest: log}
+	defer logSeguro.Flush()
+
+	if err := rodar(ctx, logSeguro, "", "git", args...); err != nil {
 		return "", fmt.Errorf("git clone: %w", err)
 	}
 

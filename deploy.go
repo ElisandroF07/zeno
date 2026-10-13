@@ -22,6 +22,7 @@ type deploys struct {
 	db     *sql.DB
 	ng     *nginx
 	sv     *servicos
+	gh     *github // autentica clone de repo privado do GitHub, se conectado
 	logDir string
 	porta  string // porta da UI do Zeno, para re-sincronizar o nginx
 }
@@ -217,7 +218,9 @@ func (d *deploys) executar(ctx context.Context, a App, deployID int64) {
 	defer os.RemoveAll(dir)
 
 	fmt.Fprintf(log, "=== clone de %s (%s)\n", a.RepoURL, a.Branch)
-	sha, err := clonar(ctx, a.RepoURL, a.Branch, dir, log)
+	// comAutenticacao só troca alguma coisa se for github.com e o GitHub
+	// estiver conectado — repo público ou fora do GitHub clona igual.
+	sha, err := clonar(ctx, d.gh.comAutenticacao(a.RepoURL), a.Branch, dir, log)
 	if err != nil {
 		falhar("%v", err)
 		return

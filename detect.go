@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -21,6 +22,12 @@ type Deteccao struct {
 	Estrategia string `json:"estrategia"` // dockerfile | nixpacks — o que build.go vai escolher de qualquer forma
 	Porta      int    `json:"porta"`
 	Comentario string `json:"comentario"`
+
+	// BranchUsada é sempre a branch de verdade que foi clonada — nunca um
+	// palpite. Se o campo do formulário veio vazio, é a branch padrão do
+	// remoto (a mesma que "git clone <url>" sem --branch escolheria).
+	BranchUsada         string   `json:"branch_usada"`
+	BranchesDisponiveis []string `json:"branches_disponiveis"`
 }
 
 func arquivoExiste(dir, nome string) bool {
@@ -179,24 +186,100 @@ func detectarPython(dir string) Deteccao {
 	}
 }
 
-// detectarRepo clona raso num diretório temporário só para inspecionar —
-// nunca builda, e o clone morre com a função (defer RemoveAll). Reaproveita
-// o mesmo `clonar` do motor de deploy: é o mesmo git, a mesma autenticação.
-func detectarRepo(ctx context.Context, repoURL, branch string) (Deteccao, error) {
+// refsRemoto pergunta ao remoto quais branches existem e qual é a padrão —
+// sem clonar nada, só consultando refs (o mesmo "git ls-remote" que a Vercel
+// e qualquer plataforma de deploy usa pra isso). É o que evita adivinhar:
+// "main" é só o palpite mais comum, não existe garantia nenhuma de que é o
+// nome certo — perguntar ao remoto é a única forma de saber de verdade.
+func refsRemoto(ctx context.Context, repoURL string) (padrao string, branches []string, err error) {
+	// Duas chamadas, não uma: `--symref --heads <repo> HEAD` juntos devolvem
+	// saída vazia — o filtro --heads também descarta o próprio HEAD symref
+	// pedido, porque HEAD não vive sob refs/heads/. Ordem importa pouco;
+	// symref primeiro só porque é o que decide a branch padrão.
+	saidaSymref, err := gitLsRemote(ctx, "--symref", repoURL, "HEAD")
+	if err != nil {
+		// mascararCredenciais: repoURL pode carregar token do GitHub
+		// (comAutenticacao) — o próprio git ecoa a URL usada na mensagem de
+		// erro, e isso não pode vazar pra tela nem pra log nenhum.
+		return "", nil, fmt.Errorf("git ls-remote falhou: %s", mascararCredenciais(saidaSymref))
+	}
+	for _, linha := range strings.Split(saidaSymref, "\n") {
+		if resto, ok := strings.CutPrefix(linha, "ref: refs/heads/"); ok {
+			padrao = strings.TrimSpace(strings.Fields(resto)[0])
+			break
+		}
+	}
+	if padrao == "" {
+		return "", nil, fmt.Errorf("não encontrei a branch padrão desse repositório — existe mesmo, e você tem acesso?")
+	}
+
+	saidaHeads, err := gitLsRemote(ctx, "--heads", repoURL)
+	if err != nil {
+		return "", nil, fmt.Errorf("git ls-remote falhou: %s", mascararCredenciais(saidaHeads))
+	}
+	for _, linha := range strings.Split(saidaHeads, "\n") {
+		if _, nome, ok := strings.Cut(linha, "\trefs/heads/"); ok {
+			branches = append(branches, strings.TrimSpace(nome))
+		}
+	}
+	return padrao, branches, nil
+}
+
+func gitLsRemote(ctx context.Context, args ...string) (saida string, err error) {
+	var buf bytes.Buffer
+	cmd := exec.CommandContext(ctx, "git", append([]string{"ls-remote"}, args...)...)
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	err = cmd.Run()
+	return strings.TrimSpace(buf.String()), err
+}
+
+// detectarRepo primeiro pergunta ao remoto quais branches existem — nunca
+// tenta adivinhar. Se o usuário pediu uma branch específica, ela precisa
+// estar na lista (erro claro se não estiver, antes de qualquer clone); se
+// veio vazio, usa a branch padrão do próprio remoto. Só então clona — raso,
+// num diretório temporário que morre com a função — para inspecionar; nunca
+// builda. Reaproveita o mesmo `clonar` do motor de deploy: mesmo git, mesma
+// autenticação.
+func detectarRepo(ctx context.Context, repoURL, branchPedida string) (Deteccao, error) {
+	padrao, disponiveis, err := refsRemoto(ctx, repoURL)
+	if err != nil {
+		return Deteccao{}, err
+	}
+
+	branch := padrao
+	if branchPedida != "" {
+		achou := false
+		for _, b := range disponiveis {
+			if b == branchPedida {
+				achou = true
+				break
+			}
+		}
+		if !achou {
+			return Deteccao{}, fmt.Errorf(
+				"branch %q não existe nesse repositório — disponíveis: %s",
+				branchPedida, strings.Join(disponiveis, ", "))
+		}
+		branch = branchPedida
+	}
+
 	dir, err := os.MkdirTemp("", "zeno-detectar-")
 	if err != nil {
 		return Deteccao{}, err
 	}
 	defer os.RemoveAll(dir)
 
-	// A saída do git precisa sobreviver ao erro: "exit status 128" sozinho
-	// não diz nada — quem vê isso não sabe se é branch errada, repo privado
-	// sem credencial, ou nome digitado errado. O texto que realmente importa
-	// (`fatal: Remote branch ... not found`, `fatal: could not read
-	// Username`, `repository not found`) só existe no stderr do próprio git.
+	// A saída do git precisa sobreviver a um erro daqui pra frente também —
+	// mesmo com a branch já confirmada que existe, coisas como repo privado
+	// sem credencial ainda falham só no clone, não no ls-remote.
 	var saida bytes.Buffer
 	if _, err := clonar(ctx, repoURL, branch, dir, &saida); err != nil {
 		return Deteccao{}, fmt.Errorf("git clone falhou: %s", strings.TrimSpace(saida.String()))
 	}
-	return detectarProjeto(dir), nil
+
+	d := detectarProjeto(dir)
+	d.BranchUsada = branch
+	d.BranchesDisponiveis = disponiveis
+	return d, nil
 }

@@ -47,8 +47,17 @@ func main() {
 	addr := env("ZENO_ADDR", ":8080")
 	ng := &nginx{dk: dk, db: db}
 	sv := &servicos{dk: dk, db: db, presets: presets}
+
+	gh := novoGithub(db,
+		env("ZENO_GITHUB_CLIENT_ID", ""),
+		env("ZENO_GITHUB_CLIENT_SECRET", ""),
+		env("ZENO_GITHUB_CALLBACK_URL", "http://localhost"+addr+"/api/github/callback"))
+	if gh.configurado() {
+		log.Printf("integração com GitHub configurada (callback: %s)", gh.callbackURL)
+	}
+
 	dp := &deploys{
-		dk: dk, db: db, ng: ng, sv: sv,
+		dk: dk, db: db, ng: ng, sv: sv, gh: gh,
 		logDir: env("ZENO_LOGS", "logs"),
 		porta:  porta(addr),
 	}
@@ -93,6 +102,7 @@ func main() {
 	rotasNginx(mux, ng, porta(addr))
 	rotasServicos(mux, sv)
 	rotasDeploy(mux, dp)
+	rotasGithub(mux, gh)
 	mux.Handle("GET /", spa())
 
 	go ac.renovarPeriodicamente(context.Background(), func() []string {

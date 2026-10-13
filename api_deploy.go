@@ -37,7 +37,11 @@ func rotasDeploy(mux *http.ServeMux, dp *deploys) {
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
 
-		deteccao, err := detectarRepo(ctx, corpo.RepoURL, corpo.Branch)
+		// Só troca alguma coisa se for github.com e o GitHub estiver
+		// conectado — é o que faz repositório privado detectar sem o
+		// usuário nunca colar uma credencial na tela.
+		repoURL := dp.gh.comAutenticacao(corpo.RepoURL)
+		deteccao, err := detectarRepo(ctx, repoURL, corpo.Branch)
 		if err != nil {
 			erroHTTP(w, http.StatusUnprocessableEntity, err.Error())
 			return

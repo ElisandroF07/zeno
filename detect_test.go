@@ -91,7 +91,7 @@ func TestDetectarSpringBootLeitaPortaDeProperties(t *testing.T) {
 
 func TestDetectarSpringBootLeitaPortaDeYAML(t *testing.T) {
 	dir := projetoDeTeste(t, map[string]string{
-		"build.gradle": "plugins { id 'org.springframework.boot' }",
+		"build.gradle":                       "plugins { id 'org.springframework.boot' }",
 		"src/main/resources/application.yml": "server:\n  port: 9091\napp:\n  nome: loja\n",
 	})
 	d := detectarProjeto(dir)
@@ -206,6 +206,59 @@ func TestDetectarRepoErroDeCloneExpoeMensagemDoGit(t *testing.T) {
 	}
 	if strings.Contains(msg, "exit status") && !strings.Contains(msg, "not found") && !strings.Contains(msg, "não") {
 		t.Errorf("erro parece ter voltado a ser só o exit code genérico: %v", err)
+	}
+}
+
+// Regressão do relato de uso: pedir uma branch inexistente não pode nem
+// tentar clonar — precisa recusar na hora, com a lista do que existe de
+// verdade, igual a Vercel faz ao conectar um repositório.
+func TestDetectarRepoBranchInexistenteFalhaAntesDoClone(t *testing.T) {
+	dir := repoGitDeTeste(t, "main", map[string]string{"go.mod": "module t\n\ngo 1.25\n"})
+	rodar := func(args ...string) {
+		cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	rodar("checkout", "-q", "-b", "dev")
+	rodar("checkout", "-q", "main")
+
+	_, err := detectarRepo(context.Background(), dir, "branch-fantasma")
+	if err == nil {
+		t.Fatal("esperava recusa antes de clonar")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "branch-fantasma") {
+		t.Errorf("erro deveria citar a branch pedida, veio: %v", err)
+	}
+	if !strings.Contains(msg, "main") || !strings.Contains(msg, "dev") {
+		t.Errorf("erro deveria listar as branches que existem de verdade (main, dev), veio: %v", err)
+	}
+}
+
+// A branch usada e a lista de disponíveis precisam refletir o remoto de
+// verdade — é o que alimenta o seletor da tela, não um palpite.
+func TestDetectarRepoDevolveBranchUsadaEDisponiveis(t *testing.T) {
+	dir := repoGitDeTeste(t, "main", map[string]string{"go.mod": "module t\n\ngo 1.25\n"})
+	cmd := exec.Command("git", "-C", dir, "branch", "producao")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git branch: %v\n%s", err, out)
+	}
+
+	d, err := detectarRepo(context.Background(), dir, "")
+	if err != nil {
+		t.Fatalf("detectarRepo: %v", err)
+	}
+	if d.BranchUsada != "main" {
+		t.Errorf("branch_usada = %q, quer %q (a padrão do remoto)", d.BranchUsada, "main")
+	}
+	achouMain, achouProducao := false, false
+	for _, b := range d.BranchesDisponiveis {
+		achouMain = achouMain || b == "main"
+		achouProducao = achouProducao || b == "producao"
+	}
+	if !achouMain || !achouProducao {
+		t.Errorf("branches_disponiveis deveria ter main e producao, veio: %v", d.BranchesDisponiveis)
 	}
 }
 
